@@ -12,6 +12,9 @@ model User {
   username  String    @unique
   email     String    @unique
   password  String
+  avatar    String?
+  isOnline  Boolean   @default(false)
+  lastSeen  DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -19,6 +22,10 @@ model User {
   conversationsAsParticipantOne Conversation[] @relation("participantOne")
   conversationsAsParticipantTwo Conversation[] @relation("participantTwo")
   messagesSent Message[] @relation("sentMessages")
+  groupMemberships GroupMember[]
+  messageReactions MessageReaction[]
+  readReceipts ReadReceipt[]
+  mentions MessageMention[]
 
   // Contacts
   contacts       Contact[] @relation("userContacts")
@@ -27,14 +34,36 @@ model User {
 
 model Conversation {
   id             Int       @id @default(autoincrement())
-  participantOne Int
-  participantTwo Int
+  type           String    @default("private") // "private" or "group"
+  participantOne Int?
+  participantTwo Int?
+  name           String?   // For group chats
+  avatar         String?   // For group chats
   createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  participantOneUser User @relation("participantOne", fields: [participantOne], references: [id])
-  participantTwoUser User @relation("participantTwo", fields: [participantTwo], references: [id])
+  participantOneUser User? @relation("participantOne", fields: [participantOne], references: [id])
+  participantTwoUser User? @relation("participantTwo", fields: [participantTwo], references: [id])
   messages          Message[]
+  groupMembers      GroupMember[]
+}
+
+model GroupMember {
+  id             Int    @id @default(autoincrement())
+  conversationId Int
+  userId         Int
+  role           String @default("member") // "admin" or "member"
+  muted          Boolean @default(false)
+  joinedAt       DateTime @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
 }
 
 model Message {
@@ -42,11 +71,71 @@ model Message {
   conversationId Int
   senderId       Int
   content        String
+  type           String    @default("text") // "text", "image", "video", "audio", "file"
+  mediaUrl       String?
+  fileName       String?
+  fileSize       Int?
+  isEdited       Boolean   @default(false)
+  isDeleted      Boolean   @default(false)
+  deletedForEveryone Boolean @default(false)
   createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   // Relations
-  conversation Conversation @relation(fields: [conversationId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("sentMessages", fields: [senderId], references: [id])
+  reactions    MessageReaction[]
+  readReceipts ReadReceipt[]
+  mentions     MessageMention[]
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+}
+
+model MessageReaction {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  emoji     String   // e.g., "👍", "❤️", "😂"
+  createdAt DateTime @default(now())
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+}
+
+model MessageMention {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  createdAt DateTime @default(now())
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+}
+
+model ReadReceipt {
+  id        Int      @id @default(autoincrement())
+  messageId Int
+  userId    Int
+  readAt    DateTime @default(now())
+
+  // Relations
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
 }
 
 model Contact {
