@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_0Oc1APfjlSIU@ep-spring-moon-ahzf4izk-pooler.c-3.us-east-1.aws.neon.tech/chat?sslmode=require&channel_binding=require"
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relations
+  conversationsAsParticipantOne Conversation[] @relation("participantOne")
+  conversationsAsParticipantTwo Conversation[] @relation("participantTwo")
+  messagesSent Message[] @relation("sentMessages")
+
+  // Contacts
+  contacts       Contact[] @relation("userContacts")
+  contactsOf     Contact[] @relation("contactOf")
+}
+
+model Conversation {
+  id             Int       @id @default(autoincrement())
+  participantOne Int
+  participantTwo Int
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  participantOneUser User @relation("participantOne", fields: [participantOne], references: [id])
+  participantTwoUser User @relation("participantTwo", fields: [participantTwo], references: [id])
+  messages          Message[]
+}
+
+model Message {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  content        String
+  createdAt      DateTime  @default(now())
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation("sentMessages", fields: [senderId], references: [id])
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  contactId Int
+
+  // Relations
+  user    User @relation("userContacts", fields: [userId], references: [id])
+  contact User @relation("contactOf", fields: [contactId], references: [id])
+
+  @@unique([userId, contactId])
+}
